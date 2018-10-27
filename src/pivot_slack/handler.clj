@@ -4,6 +4,7 @@
             [clojure.data.json :as json]
             [ring.logger :as logger]
             [clj-http.client :as client]
+            [environ.core :refer [env]]
             clj-http.util
             [org.httpkit.server :refer [run-server]]
             [ring.middleware.transit :refer [wrap-transit-response]]
@@ -12,7 +13,7 @@
 ;; (defonce server (atom nil))
 (def ^:dynamic *server* (atom nil))
 
-(def oauth-token "xoxp-261542976081-262065086930-455830832484-2fab0362cf27bf20ef258b081f4e94a2")
+(def oauth-token (:slack-oauth-token env))
 
 (defmulti create-story-handler
   (fn [payload] (get payload "type")))
