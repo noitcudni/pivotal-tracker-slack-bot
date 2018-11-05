@@ -10,6 +10,7 @@
                  [http-kit "2.3.0"]
                  [ring-logger "1.0.1"]
                  [ring-transit "0.1.6"]
+                 [io.replikativ/datahike "0.1.2"]
                  [ring/ring-defaults "0.3.2"]]
   :plugins [[lein-ring "0.12.4"]
             [lein-environ "1.1.0"]]
