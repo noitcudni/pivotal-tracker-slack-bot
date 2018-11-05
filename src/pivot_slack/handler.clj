@@ -22,6 +22,8 @@
   (fn [payload] (get payload "type")))
 
 
+{:action_ts "1541388483.421522", :callback_id "create-story", :trigger_id "471504870211.261542976081.cd00beea4809589623908e88c8160f4f", :channel {:id "CDUF6Q4V6", :name "pivotal"}, :type "message_action", :token "qE7oUaW1ATt44SXNRSKs0SUL", :team {:id "T7PFYUQ2D", :domain "jennyandlih"}, :message_ts "1541387607.000800", :user {:id "U7Q1X2JTC", :name "lihster"}, :response_url "https://hooks.slack.com/app/T7PFYUQ2D/471435204516/KdWEnLbdbcpHoZULzzTdjbh3", :message {:type "message", :user "U7Q1X2JTC", :text "llkj", :client_msg_id "988f99da-a174-4636-aabe-b77a5ba1601d", :ts "1541387607.000800"}}
+
 (defn slack-user-info [oauth-token user]
   (-> (client/get "https://slack.com/api/users.info" {:query-params {:token oauth-token
                                                                      :user user}})
@@ -30,13 +32,29 @@
       clojure.walk/keywordize-keys
       ))
 
+(defn slack-permalink [oauth-token channel-id message-ts]
+  (-> (client/get "https://slack.com/api/chat.getPermalink" {:query-params {:token oauth-token
+                                                                            :channel channel-id
+                                                                            :message_ts message-ts}})
+      :body
+      json/read-str
+      clojure.walk/keywordize-keys))
 
 
 (defmethod create-story-handler "message_action"
   [payload]
-  (let [trigger-id (get payload "trigger_id")
-        callback-id (get payload "callback_id")
+  (let [payload (clojure.walk/keywordize-keys payload)
+        {trigger-id :trigger_id
+         callback-id :callback_id
+         {channel-id :id} :channel
+         {text :text
+          ts :ts} :message} payload
         token oauth-token
+
+        ;; retrieve the permalink
+        permalink (->> (slack-permalink oauth-token channel-id ts) :permalink)
+        description (str text "\n\n" "Created from Slack:\n" permalink)
+
         ;; fetch project(s)
         projects (pivotal/projects pivotal-token)
         elements {:title "Create a new story"
@@ -63,11 +81,10 @@
                              {:type "textarea"
                               :label "Description"
                               :name :description
+                              :value description
                               :optional true}
                              ]}
         ]
-    (prn "message_action") ;;xxx
-
     (client/post "https://slack.com/api/dialog.open" {:content-type "application/json"
                                                       :headers {:authorization (str "Bearer " token)}
                                                       :body (json/write-str {:dialog elements
@@ -186,7 +203,9 @@
 
   (POST "/interactivity" [:as req]
         (let [payload (json/read-str (-> (:form-params req)
-                                         (get "payload")))]
+                                         (get "payload")))
+              _ (prn "form-params: " (:form-params req)) ;;xxx
+              ]
           (create-story-handler payload))
 
         {:status 200
