@@ -131,11 +131,15 @@
           :as submission-data} :submission
          } (clojure.walk/keywordize-keys payload)
 
-        ;; TODO: get user's email from user id
+        ;; Get user's email from user id
         ;; If slack email doesn't match any of the pivotal email, give the end user the mapping option
-        slack-u-info (slack-user-info oauth-token slack-uid)
+        {{slack-id :id
+          {slack-email :email
+           slack-handle :display_name_normalized} :profile} :user
+         :as slack-u-info} (slack-user-info oauth-token slack-uid)
         _ (prn "slack-u-info : " slack-u-info) ;;xxx
 
+        ;;TODO handle slack-u-info being nil
         pivotal-user-id (slack-user->pivotal-user-id slack-u-info pivotal-proj-id)
         _ (prn "pivotal-user-id: " pivotal-user-id) ;;xxx
 
@@ -150,40 +154,83 @@
         ;; _ (prn "submission data: " (get payload "submission"))
         ]
 
-    (prn (client/post "https://slack.com/api/chat.postMessage" {:content-type "application/json"
-                                                                :charset "utf-8"
-                                                                :headers {:authorization (str "Bearer " token)}
-                                                                :body (json/write-str {:trigger_id trigger-id
-                                                                                       :channel channel-id
-                                                                                       :text text
-                                                                                       :attachments [{:text "Choose a game to play"
-                                                                                                      :fallback "fallback"
-                                                                                                      :attachment_type "default"
-                                                                                                      :callback_id callback-id
-                                                                                                      :actions [{:name "action_name"
-                                                                                                                 :text "action_text"
-                                                                                                                 :type "select"
-                                                                                                                 :options [{:text "Hearts"
-                                                                                                                            :value "hearts"}
-                                                                                                                           {:text "Chess"
-                                                                                                                            :value "Chess"}]}
-                                                                                                                ]}
-                                                                                                     {:text "Choose a game to play2"
-                                                                                                      :fallback "fallback"
-                                                                                                      :attachment_type "default"
-                                                                                                      :callback_id callback-id
-                                                                                                      :actions [{:name "action_name"
-                                                                                                                 :text "action_text"
-                                                                                                                 :type "select"
-                                                                                                                 :options [{:text "Hearts"
-                                                                                                                            :value "hearts"}
-                                                                                                                           {:text "Chess"
-                                                                                                                            :value "Chess"}]}
-                                                                                                                ]}
-                                                                                                     ]
-                                                                                       })
-                                                                }))
+    (if pivotal-user-id
+      ;; TODO found this user. create the story
+      (client/post "https://slack.com/api/chat.postMessage" {:content-type "application/json"
+                                                             :charset "utf-8"
+                                                             :headers {:authorization (str "Bearer " token)}
+                                                             :body (json/write-str {:trigger_id trigger-id
+                                                                                    :channel channel-id
+                                                                                    :text text
+                                                                                    :attachments [{:text "Choose a game to play"
+                                                                                                   :fallback "fallback"
+                                                                                                   :attachment_type "default"
+                                                                                                   :callback_id callback-id
+                                                                                                   :actions [{:name "action_name"
+                                                                                                              :text "action_text"
+                                                                                                              :type "select"
+                                                                                                              :options [{:text "Hearts"
+                                                                                                                         :value "hearts"}
+                                                                                                                        {:text "Chess"
+                                                                                                                         :value "Chess"}]}
+                                                                                                             ]}
+                                                                                                  {:text "Choose a game to play2"
+                                                                                                   :fallback "fallback"
+                                                                                                   :attachment_type "default"
+                                                                                                   :callback_id callback-id
+                                                                                                   :actions [{:name "action_name"
+                                                                                                              :text "action_text"
+                                                                                                              :type "select"
+                                                                                                              :options [{:text "Hearts"
+                                                                                                                         :value "hearts"}
+                                                                                                                        {:text "Chess"
+                                                                                                                         :value "Chess"}]}
+                                                                                                             ]}
+                                                                                                  ]})
+                                                             })
+      ;; TODO: Need to go back to the user for either invite or linkage
+      (client/post "https://slack.com/api/chat.postMessage" {:content-type "application/json"
+                                                             :charset "utf-8"
+                                                             :headers {:authorization (str "Bearer " token)}
+                                                             :body (json/write-str {:trigger_id trigger-id
+                                                                                    :channel channel-id
+                                                                                    :text (str "Couldn't find " slack-email " in Pivotal Tracker.")
+                                                                                    :attachments [{:text "You can either "
+                                                                                                   :fallback "fallback"
+                                                                                                   :attachment_type "default"
+                                                                                                   :callback_id callback-id
+                                                                                                   :actions [{:name "invitee"
+                                                                                                              :type "button"
+                                                                                                              :text (str "invite "slack-email)
+                                                                                                              :value slack-email
+                                                                                                              }
+                                                                                                             {:name "linkage"
+                                                                                                              :type "button"
+                                                                                                              :text (str "link " slack-handle " to a pivotal user")
+                                                                                                              :value slack-email}
+                                                                                                             ]}
+                                                                                                  #_{:text (str "OR link " slack-handle " to an existing pivotal member.")
+                                                                                                   :fallback "fallback"
+                                                                                                   :attachment_type "default"
+                                                                                                   :callback_id callback-id
+                                                                                                   :actions [{:name "action_name"
+                                                                                                              :text "action_text"
+                                                                                                              :type "select"
+                                                                                                              :options [{:text "Hearts"
+                                                                                                                         :value "hearts"}
+                                                                                                                        {:text "Chess"
+                                                                                                                         :value "Chess"}]}
+                                                                                                             ]}
+                                                                                                  ]})
+                                                             })
+      )
     ))
+
+(defmethod create-story-handler "interactive_message"
+  [payload]
+  ;; TODO gets called when the user tries to send an invite or link
+
+  )
 
 (defmulti dynamic-option-handler
   (fn [payload] (get payload "callback_id")))
