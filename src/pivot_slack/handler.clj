@@ -22,8 +22,6 @@
   (fn [payload] (get payload "type")))
 
 
-{:action_ts "1541388483.421522", :callback_id "create-story", :trigger_id "471504870211.261542976081.cd00beea4809589623908e88c8160f4f", :channel {:id "CDUF6Q4V6", :name "pivotal"}, :type "message_action", :token "qE7oUaW1ATt44SXNRSKs0SUL", :team {:id "T7PFYUQ2D", :domain "jennyandlih"}, :message_ts "1541387607.000800", :user {:id "U7Q1X2JTC", :name "lihster"}, :response_url "https://hooks.slack.com/app/T7PFYUQ2D/471435204516/KdWEnLbdbcpHoZULzzTdjbh3", :message {:type "message", :user "U7Q1X2JTC", :text "llkj", :client_msg_id "988f99da-a174-4636-aabe-b77a5ba1601d", :ts "1541387607.000800"}}
-
 (defn slack-user-info [oauth-token user]
   (-> (client/get "https://slack.com/api/users.info" {:query-params {:token oauth-token
                                                                      :user user}})
@@ -47,8 +45,7 @@
         {trigger-id :trigger_id
          callback-id :callback_id
          {channel-id :id} :channel
-         {text :text
-          ts :ts} :message} payload
+         {text :text ts :ts} :message} payload
         token oauth-token
 
         ;; retrieve the permalink
@@ -195,33 +192,23 @@
                                                              :body (json/write-str {:trigger_id trigger-id
                                                                                     :channel channel-id
                                                                                     :text (str "Couldn't find " slack-email " in Pivotal Tracker.")
-                                                                                    :attachments [{:text "You can either "
-                                                                                                   :fallback "fallback"
+                                                                                    :attachments [{:text (format "You can either invite %s to Pivotal" slack-email)
+                                                                                                   ;; :fallback "fallback"
                                                                                                    :attachment_type "default"
                                                                                                    :callback_id callback-id
-                                                                                                   :actions [{:name "invitee"
+                                                                                                   :actions [{:name "invite"
                                                                                                               :type "button"
                                                                                                               :text (str "invite "slack-email)
                                                                                                               :value slack-email
-                                                                                                              }
-                                                                                                             {:name "linkage"
-                                                                                                              :type "button"
-                                                                                                              :text (str "link " slack-handle " to a pivotal user")
-                                                                                                              :value slack-email}
-                                                                                                             ]}
-                                                                                                  #_{:text (str "OR link " slack-handle " to an existing pivotal member.")
-                                                                                                   :fallback "fallback"
-                                                                                                   :attachment_type "default"
+                                                                                                              }]}
+                                                                                                  {:text (format "Or, you can link %s to an existing Pivotal user" slack-handle)
+                                                                                                   ;; :fallack "fallback"
                                                                                                    :callback_id callback-id
-                                                                                                   :actions [{:name "action_name"
-                                                                                                              :text "action_text"
-                                                                                                              :type "select"
-                                                                                                              :options [{:text "Hearts"
-                                                                                                                         :value "hearts"}
-                                                                                                                        {:text "Chess"
-                                                                                                                         :value "Chess"}]}
-                                                                                                             ]}
-                                                                                                  ]})
+                                                                                                   :actions [{:name "linkage"
+                                                                                                              :type "button"
+                                                                                                              :text (str "link " slack-handle)
+                                                                                                              :value slack-email}]
+                                                                                                   }]})
                                                              })
       )
     ))
@@ -229,8 +216,41 @@
 (defmethod create-story-handler "interactive_message"
   [payload]
   ;; TODO gets called when the user tries to send an invite or link
+  (prn "interactive_message payload: " payload) ;;xxx
+  (let [payload (clojure.walk/keywordize-keys payload)
+        {trigger-id :trigger_id
+         callback-id :callback_id
+         {channel-id :id} :channel
+         [{action-name :name
+           action-value :value}] :actions
+         ts :message_ts} payload
+        _ (prn ">> ts : " ts) ;;xxx
+        ]
+    (cond (= action-name "linkage")
+          (do (prn "execute linkage")
+              (prn "chat.update: " (client/post "https://slack.com/api/chat.update" {:content-type "application/json"
+                                                                     :charset "utf-8"
+                                                                     :headers {:authorization (str "Bearer " oauth-token)}
+                                                                     :body (json/write-str {:trigger_id trigger-id
+                                                                                            :channel channel-id
+                                                                                            :ts ts
+                                                                                            :attachments [{:text (format "WTF")
+                                                                                                           ;; :fallback "fallback"
+                                                                                                           :attachment_type "default"
+                                                                                                           :callback_id callback-id
+                                                                                                           :actions [{:name "invitee"
+                                                                                                                      :type "button"
+                                                                                                                      :text (str "invite ")
+                                                                                                                      :value "WTF"
+                                                                                                                      }]}
+                                                                                                          ]})
+                                                                     })))
 
-  )
+          (= action-name "invite")
+          (prn "TODO: I'm not doing anything yet") ;;xxx
+
+          )))
+
 
 (defmulti dynamic-option-handler
   (fn [payload] (get payload "callback_id")))
