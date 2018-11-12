@@ -53,7 +53,7 @@
                                       (when story-type
                                         {:with_story_type story-type})
                                       (when owner-id
-                                        {:owner-ids [owner-id]}))
+                                        {:owner_ids [owner-id]}))
                                json/write-str)
                      })
        :body

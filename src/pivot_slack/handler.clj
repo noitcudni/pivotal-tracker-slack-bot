@@ -63,7 +63,6 @@
                               :label "Story Name"
                               :name :story_name
                               :placeholder "Write a story name"}
-                             ;; TODO project should be a dynamic select
                              {:type "select"
                               :label "Project"
                               :name :project
@@ -114,11 +113,6 @@
     ))
 
 
-
-
-(defn slack-user<=>pivotal-user []
-  )
-
 (defmethod create-story-handler "dialog_submission"
   [payload]
   (let [token oauth-token
@@ -146,19 +140,18 @@
         _ (prn "pivotal-proj-id: " pivotal-proj-id) ;;xxx
 
 
-        ;; pivotal-proj-members (pivotal/project-members pivotal-token pivotal-proj-id)
-        ;; _ (prn "pivotal-proj-members: " pivotal-proj-members) ;;xxx
-
-
         text "Your story has been created!!"
 
         _ (prn "channel-id:"  channel-id)
 
         ;; create the story and worry about assign it later
-        create-story-resp (clojure.walk/keywordize-keys (pivotal/create-story pivotal-token pivotal-proj-id
-                                                                              :name story-name
-                                                                              :description description))
-        pivotal-story-id (:id create-story-resp)
+        {pivotal-story-id :id
+         pivotal-story-url :url
+         :as create-story-resp} (clojure.walk/keywordize-keys (pivotal/create-story pivotal-token pivotal-proj-id
+                                                                                    :name story-name
+                                                                                    :description description
+                                                                                    :owner-id pivotal-user-id))
+        _ (prn "story-resp" create-story-resp) ;;xxx
         ]
 
     (if pivotal-user-id
@@ -169,30 +162,8 @@
                                                              :body (json/write-str {:trigger_id trigger-id
                                                                                     :channel channel-id
                                                                                     :text text
-                                                                                    :attachments [{:text "Choose a game to play"
-                                                                                                   :fallback "fallback"
-                                                                                                   :attachment_type "default"
-                                                                                                   :callback_id callback-id
-                                                                                                   :actions [{:name "action_name"
-                                                                                                              :text "action_text"
-                                                                                                              :type "select"
-                                                                                                              :options [{:text "Hearts"
-                                                                                                                         :value "hearts"}
-                                                                                                                        {:text "Chess"
-                                                                                                                         :value "Chess"}]}
-                                                                                                             ]}
-                                                                                                  {:text "Choose a game to play2"
-                                                                                                   :fallback "fallback"
-                                                                                                   :attachment_type "default"
-                                                                                                   :callback_id callback-id
-                                                                                                   :actions [{:name "action_name"
-                                                                                                              :text "action_text"
-                                                                                                              :type "select"
-                                                                                                              :options [{:text "Hearts"
-                                                                                                                         :value "hearts"}
-                                                                                                                        {:text "Chess"
-                                                                                                                         :value "Chess"}]}
-                                                                                                             ]}
+                                                                                    :attachments [{:text (format "Pivotal Story: %s" pivotal-story-url)}
+                                                                                                  {:text (format "Your story has beeen created and assigned to @%s." slack-handle)}
                                                                                                   ]})
                                                              })
 
@@ -234,7 +205,6 @@
 
 (defmethod create-story-handler "interactive_message"
   [payload]
-  ;; TODO gets called when the user tries to send an invite or link
   (let [payload (clojure.walk/keywordize-keys payload)
         {trigger-id :trigger_id
          callback-id :callback_id
@@ -307,7 +277,7 @@
                                                                   :body (json/write-str {:trigger_id trigger-id
                                                                                          :channel channel-id
                                                                                          :ts ts
-                                                                                         :attachments [{:text (format "Pivotal Story: " pivotal-story-url)}
+                                                                                         :attachments [{:text (format "Pivotal Story: %s" pivotal-story-url)}
                                                                                                        {:text (format "Your story has been created and assigned to @%s. An pivotal invite was sent to @%s at %s."
                                                                                                                       slack-handle slack-handle slack-email)}]
                                                                                          })}))))
