@@ -165,7 +165,7 @@
                                                                                     :text text
                                                                                     :attachments [{:text (format "Pivotal Story: %s" pivotal-story-url)}
                                                                                                   {:text (format "Your story has beeen created and assigned to %s."
-                                                                                                                 (if slack-handle (str "@" slack-handle) "no one"))}
+                                                                                                                 (if slack-id (format "<@%s>" slack-id) "no one"))}
                                                                                                   ]})
                                                              })
       ; linkage or invite
@@ -175,7 +175,7 @@
                                                              :body (json/write-str {:trigger_id trigger-id
                                                                                     :channel channel-id
                                                                                     :text (str "Couldn't find " slack-email " in Pivotal Tracker.")
-                                                                                    :attachments [{:text (format "You can either invite @%s to Pivotal" slack-email)
+                                                                                    :attachments [{:text (format "You can either invite <@%s> to Pivotal" slack-id)
                                                                                                    ;; :fallback "fallback"
                                                                                                    :attachment_type "default"
                                                                                                    :callback_id callback-id
@@ -188,7 +188,7 @@
                                                                                                                                       :story-id pivotal-story-id
                                                                                                                                       :project-id pivotal-proj-id})
                                                                                                               }]}
-                                                                                                  {:text (format "Or, you can link @%s to an existing Pivotal user" slack-handle)
+                                                                                                  {:text (format "Or, you can link <@%s> to an existing Pivotal user" slack-id)
                                                                                                    ;; :fallack "fallback"
                                                                                                    :callback_id callback-id
                                                                                                    :actions [{:name "linkage"
@@ -235,7 +235,7 @@
                                                                                          :channel channel-id
                                                                                          :ts ts
 
-                                                                                         :attachments [{:text (format "Link @%s to one of the following Pivotal user" slack-handle)
+                                                                                         :attachments [{:text (format "Link <@%s> to one of the following Pivotal user" slack-id)
                                                                                                         ;; :fallback "fallback"
                                                                                                         :attachment_type "default"
                                                                                                         :callback_id callback-id
@@ -279,8 +279,8 @@
                                                                                          :channel channel-id
                                                                                          :ts ts
                                                                                          :attachments [{:text (format "Pivotal Story: %s" pivotal-story-url)}
-                                                                                                       {:text (format "Your story has been created and assigned to @%s. An pivotal invite was sent to @%s at %s."
-                                                                                                                      slack-handle slack-handle slack-email)}]
+                                                                                                       {:text (format "Your story has been created and assigned to <@%s>. An pivotal invite was sent to <@%s> at %s."
+                                                                                                                      slack-id slack-id slack-email)}]
                                                                                          })}))))
 
 
@@ -304,8 +304,8 @@
                                                                                        :channel channel-id
                                                                                        :ts ts
                                                                                        :attachments [{:text (format "Pivotal Story: " pivotal-story-url)}
-                                                                                                     {:text (format "Your story has been created and assigned to @%s. @%s (slack user) has been linked to %s (pivotal user)."
-                                                                                                                    slack-handle slack-handle pivotal-email)}]
+                                                                                                     {:text (format "Your story has been created and assigned to <@%s>. <@%s> has been linked to %s (pivotal user)."
+                                                                                                                    slack-id slack-id pivotal-email)}]
                                                                                        })})))
           )))
 
