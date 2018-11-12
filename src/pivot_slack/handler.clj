@@ -2,6 +2,7 @@
   (:require [compojure.core :refer :all]
             [compojure.route :as route]
             [datahike.api :as d]
+            [slingshot.slingshot :refer [try+ throw+]]
             [clojure.data.json :as json]
             [ring.logger :as logger]
             [clj-http.client :as client]
@@ -194,14 +195,15 @@
                                                                                                              ]}
                                                                                                   ]})
                                                              })
-      ;; TODO: Need to go back to the user for either invite or linkage
+
+      ; linkage or invite
       (client/post "https://slack.com/api/chat.postMessage" {:content-type "application/json"
                                                              :charset "utf-8"
                                                              :headers {:authorization (str "Bearer " token)}
                                                              :body (json/write-str {:trigger_id trigger-id
                                                                                     :channel channel-id
                                                                                     :text (str "Couldn't find " slack-email " in Pivotal Tracker.")
-                                                                                    :attachments [{:text (format "You can either invite %s to Pivotal" slack-email)
+                                                                                    :attachments [{:text (format "You can either invite @%s to Pivotal" slack-email)
                                                                                                    ;; :fallback "fallback"
                                                                                                    :attachment_type "default"
                                                                                                    :callback_id callback-id
@@ -214,7 +216,7 @@
                                                                                                                                       :story-id pivotal-story-id
                                                                                                                                       :project-id pivotal-proj-id})
                                                                                                               }]}
-                                                                                                  {:text (format "Or, you can link %s to an existing Pivotal user" slack-handle)
+                                                                                                  {:text (format "Or, you can link @%s to an existing Pivotal user" slack-handle)
                                                                                                    ;; :fallack "fallback"
                                                                                                    :callback_id callback-id
                                                                                                    :actions [{:name "linkage"
@@ -255,31 +257,62 @@
     (cond (= action-name "linkage")
           (let [proj-members (pivotal/project-members pivotal-token project-id)]
             (do (prn "Executing linkage")
-                (prn "chat.update: " (client/post "https://slack.com/api/chat.update" {:content-type "application/json"
-                                                                                       :charset "utf-8"
-                                                                                       :headers {:authorization (str "Bearer " oauth-token)}
-                                                                                       :body (json/write-str {:trigger_id trigger-id
-                                                                                                              :channel channel-id
-                                                                                                              :ts ts
+                (client/post "https://slack.com/api/chat.update" {:content-type "application/json"
+                                                                  :charset "utf-8"
+                                                                  :headers {:authorization (str "Bearer " oauth-token)}
+                                                                  :body (json/write-str {:trigger_id trigger-id
+                                                                                         :channel channel-id
+                                                                                         :ts ts
 
-                                                                                                              :attachments [{:text (format "Link %s to one of the following Pivotal user" slack-handle)
-                                                                                                                             ;; :fallback "fallback"
-                                                                                                                             :attachment_type "default"
-                                                                                                                             :callback_id callback-id
-                                                                                                                             :actions [{:name "linkage-target"
-                                                                                                                                        :type "select"
-                                                                                                                                        :text "Select a Pivotal user"
-                                                                                                                                        :options (->> (for [[pivotal-email pivotal-uid] proj-members]
-                                                                                                                                                        {:text pivotal-email
-                                                                                                                                                         :value (-> action-value
-                                                                                                                                                                    (merge {:pivotal-uid pivotal-uid
-                                                                                                                                                                            :pivotal-email pivotal-email})
-                                                                                                                                                                    json/write-str)})
-                                                                                                                                                      (into []))
-                                                                                                                                        }]}
-                                                                                                                            ]})}))))
+                                                                                         :attachments [{:text (format "Link @%s to one of the following Pivotal user" slack-handle)
+                                                                                                        ;; :fallback "fallback"
+                                                                                                        :attachment_type "default"
+                                                                                                        :callback_id callback-id
+                                                                                                        :actions [{:name "linkage-target"
+                                                                                                                   :type "select"
+                                                                                                                   :text "Select a Pivotal user"
+                                                                                                                   :options (->> (for [[pivotal-email pivotal-uid] proj-members]
+                                                                                                                                   {:text pivotal-email
+                                                                                                                                    :value (-> action-value
+                                                                                                                                               (merge {:pivotal-uid pivotal-uid
+                                                                                                                                                       :pivotal-email pivotal-email})
+                                                                                                                                               json/write-str)})
+                                                                                                                                 (into []))
+                                                                                                                   }]}
+                                                                                                       ]})})))
           (= action-name "invite")
-          (prn "TODO: I'm not doing anything yet") ;;xxx
+          ;; 1) send whoever an invite
+          ;; 2) transact the linkage information
+          ;; 3) Update the pivotal story with the chosen user
+          ;; 4) Print out verbiage
+          (do
+            (let [pivotal-uid (-> (pivotal/send-invite* pivotal-token project-id :email slack-email)
+                                  :body
+                                  json/read-str
+                                  clojure.walk/keywordize-keys
+                                  (get-in [:person :id]))
+                  _ (prn "created pivotal-uid: " pivotal-uid) ;;xxx
+                  ]
+              @(d/transact conn [{:db/id (d/tempid :db.part/user)
+                                  :slack/user-id slack-id
+                                  :slack/email slack-email
+                                  :slack/handle slack-handle
+                                  :pivotal/email slack-email ;; pivotal invite was sent to the slack email
+                                  :pivotal/user-id pivotal-uid}])
+
+              (let [pivotal-story-url (get-in (pivotal/update-story* pivotal-token project-id story-id :owner-id pivotal-uid) [:body "url"])]
+                (client/post "https://slack.com/api/chat.update" {:content-type "application/json"
+                                                                  :charset "utf-8"
+                                                                  :headers {:authorization (str "Bearer " oauth-token)}
+                                                                  :body (json/write-str {:trigger_id trigger-id
+                                                                                         :channel channel-id
+                                                                                         :ts ts
+                                                                                         :attachments [{:text (format "Pivotal Story: " pivotal-story-url)}
+                                                                                                       {:text (format "Your story has been created and assigned to @%s. An pivotal invite was sent to @%s at %s."
+                                                                                                                      slack-handle slack-handle slack-email)}]
+                                                                                         })}))))
+
+
           (= action-name "linkage-target")
           (do
             ;; 1) transact the linkage information
@@ -300,10 +333,11 @@
                                                                                        :channel channel-id
                                                                                        :ts ts
                                                                                        :attachments [{:text (format "Pivotal Story: " pivotal-story-url)}
-                                                                                                     {:text (format "Your story has been created and assigned to %s. %s (slack user) has been linked to %s (pivotal user)."
+                                                                                                     {:text (format "Your story has been created and assigned to @%s. @%s (slack user) has been linked to %s (pivotal user)."
                                                                                                                     slack-handle slack-handle pivotal-email)}]
                                                                                        })})))
           )))
+
 
 (defmulti dynamic-option-handler
   (fn [payload] (get payload "callback_id")))
@@ -359,7 +393,7 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;  test ;;;;;;;;;;;;;;;;;;;;;;;
-;; get account id
+
 (comment
   ;; (pivotal/projects pivotal-token)
 

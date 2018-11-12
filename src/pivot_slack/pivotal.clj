@@ -71,7 +71,7 @@
                          json/read-str)))
     ))
 
-(defn send-invite [token project-id & {:keys [email]}]
+(defn send-invite* [token project-id & {:keys [email]}]
   (client/post  (str api-prefix "/projects/" project-id "/memberships")
                 {:headers {:X-TrackerToken token}
                  :content-type "application/json"
