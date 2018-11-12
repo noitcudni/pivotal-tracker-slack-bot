@@ -131,7 +131,8 @@
         {{slack-id :id
           {slack-email :email
            slack-handle :display_name_normalized} :profile} :user
-         :as slack-u-info} (slack-user-info oauth-token slack-uid)
+         :as slack-u-info} (when-not (nil? slack-uid)
+                             (slack-user-info oauth-token slack-uid))
         _ (prn "slack-u-info : " slack-u-info) ;;xxx
 
         ;;TODO handle slack-u-info being nil
@@ -154,8 +155,8 @@
         _ (prn "story-resp" create-story-resp) ;;xxx
         ]
 
-    (if pivotal-user-id
-      ;; found this user.
+    (if (or pivotal-user-id (not slack-uid))
+      ;; found this user or didn't assign to anyone
       (client/post "https://slack.com/api/chat.postMessage" {:content-type "application/json"
                                                              :charset "utf-8"
                                                              :headers {:authorization (str "Bearer " token)}
@@ -163,10 +164,10 @@
                                                                                     :channel channel-id
                                                                                     :text text
                                                                                     :attachments [{:text (format "Pivotal Story: %s" pivotal-story-url)}
-                                                                                                  {:text (format "Your story has beeen created and assigned to @%s." slack-handle)}
+                                                                                                  {:text (format "Your story has beeen created and assigned to %s."
+                                                                                                                 (if slack-handle (str "@" slack-handle) "no one"))}
                                                                                                   ]})
                                                              })
-
       ; linkage or invite
       (client/post "https://slack.com/api/chat.postMessage" {:content-type "application/json"
                                                              :charset "utf-8"
