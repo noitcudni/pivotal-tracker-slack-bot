@@ -80,9 +80,15 @@
                            json/write-str)
                  }))
 
-;; TODO: epic via label
-;; (defn )
+(defn upload* [token project-id file-path]
+  (client/post (str api-prefix "/projects/" project-id "/uploads")
+               {:headers {:X-TrackerToken token}
+                :multipart [{:name "file" :content (clojure.java.io/file file-path)}]
+                }))
 
-;; (create-story "820751d2f90569afaea21904df008869" 166031
-;;               :name "slack-test"
-;;               :description "slack description")
+(defn upload [token project-id file-path]
+  (-> (upload* token project-id file-path)
+      :body
+      json/read-str))
+
+;; (upload (:pivotal-api-token env) 166031 "/Users/lih/Desktop/transactor-disconnect-error.png")
