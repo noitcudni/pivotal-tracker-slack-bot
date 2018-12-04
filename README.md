@@ -14,6 +14,10 @@ To start a web server for the application, run:
 
     lein ring server
 
-## License
+## Executable jar file
+```
+lein ring uberjar
+```
 
-Copyright © 2018 FIXME
+## Usage
+![Convert Slack Comment into Story](https://raw.githubusercontent.com/noitcudni/pivotal-tracker-slack-bot/master/convert-comment-into-story.png)
