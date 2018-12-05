@@ -20,7 +20,7 @@
 (def pivotal-token (:pivotal-api-token env))
 
 (defmulti create-story-handler
-  (fn [payload] (get payload "type")))
+  (fn [payload] (:type payload)))
 
 
 (defn slack-user-info [oauth-token user]
@@ -42,8 +42,7 @@
 
 (defmethod create-story-handler "message_action"
   [payload]
-  (let [payload (clojure.walk/keywordize-keys payload)
-        {trigger-id :trigger_id
+  (let [{trigger-id :trigger_id
          callback-id :callback_id
          {channel-id :id} :channel
          {text :text ts :ts} :message} payload
@@ -124,7 +123,7 @@
           description :description
           story-name :story_name
           :as submission-data} :submission
-         } (clojure.walk/keywordize-keys payload)
+         } payload
 
         ;; Get user's email from user id
         ;; If slack email doesn't match any of the pivotal email, give the end user the mapping option
@@ -206,8 +205,7 @@
 
 (defmethod create-story-handler "interactive_message"
   [payload]
-  (let [payload (clojure.walk/keywordize-keys payload)
-        {trigger-id :trigger_id
+  (let [{trigger-id :trigger_id
          callback-id :callback_id
          {channel-id :id} :channel
          [{action-name :name
@@ -327,11 +325,13 @@
        {:body "Hello World!"})
 
   (POST "/interactivity" [:as req]
-        (let [payload (json/read-str (-> (:form-params req)
-                                         (get "payload")))
+        (let [{callback-id :callback_id
+               :as payload} (clojure.walk/keywordize-keys (json/read-str (-> (:form-params req)
+                                                                             (get "payload"))))
               _ (prn "form-params: " (:form-params req)) ;;xxx
               ]
-          (create-story-handler payload))
+
+          (cond (= callback-id "create-story") (create-story-handler payload)))
 
         {:status 200
          :headers {"Content-Type" "text/plain"}
