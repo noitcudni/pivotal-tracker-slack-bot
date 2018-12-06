@@ -11,6 +11,7 @@
             [pivot-slack.db :refer [conn] :as conn]
             clj-http.util
             [org.httpkit.server :refer [run-server]]
+            [pivot-slack.add-comment :refer [add-comment-handler]]
             [ring.middleware.transit :refer [wrap-transit-response]]
             [ring.middleware.defaults :refer [wrap-defaults site-defaults]]))
 
@@ -331,11 +332,14 @@
               _ (prn "form-params: " (:form-params req)) ;;xxx
               ]
 
-          (cond (= callback-id "create-story") (create-story-handler payload)))
+          (case callback-id
+            "create-story" (create-story-handler payload)
+            "add-comment" (add-comment-handler payload)
+            )
 
-        {:status 200
-         :headers {"Content-Type" "text/plain"}
-         :body ""})
+          {:status 200
+           :headers {"Content-Type" "text/plain"}
+           :body ""}))
 
   (POST "/dynamic-options" [:as req]
         (let [_ (prn "dynamic-options: " req)]
