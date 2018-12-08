@@ -8,38 +8,20 @@
             [clj-http.client :as client]
             [environ.core :refer [env]]
             [pivot-slack.pivotal :as pivotal]
+            [pivot-slack.slack :refer [slack-user-info slack-permalink]]
             [pivot-slack.db :refer [conn] :as conn]
             clj-http.util
             [org.httpkit.server :refer [run-server]]
             [pivot-slack.add-comment :refer [add-comment-handler]]
+            [pivot-slack.tokens :refer [oauth-token pivotal-token]]
             [ring.middleware.transit :refer [wrap-transit-response]]
             [ring.middleware.defaults :refer [wrap-defaults site-defaults]]))
 
 (def ^:dynamic *server* (atom nil))
 
-(def oauth-token (:slack-oauth-token env))
-(def pivotal-token (:pivotal-api-token env))
 
 (defmulti create-story-handler
   (fn [payload] (:type payload)))
-
-
-(defn slack-user-info [oauth-token user]
-  (-> (client/get "https://slack.com/api/users.info" {:query-params {:token oauth-token
-                                                                     :user user}})
-      :body
-      json/read-str
-      clojure.walk/keywordize-keys
-      ))
-
-(defn slack-permalink [oauth-token channel-id message-ts]
-  (-> (client/get "https://slack.com/api/chat.getPermalink" {:query-params {:token oauth-token
-                                                                            :channel channel-id
-                                                                            :message_ts message-ts}})
-      :body
-      json/read-str
-      clojure.walk/keywordize-keys))
-
 
 (defmethod create-story-handler "message_action"
   [payload]
