@@ -39,7 +39,7 @@
         projects (pivotal/projects pivotal-token)
         elements {:title "Create a new story"
                   :callback_id callback-id
-                  :submit_label "Submit"
+                  :submit_label "Create"
                   :state "what is this for?"
                   :elements [{:type "text"
                               :label "Story Name"
