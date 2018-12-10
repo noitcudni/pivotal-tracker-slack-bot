@@ -37,8 +37,8 @@
                              {:type "select"
                               :label "Story"
                               :name :story
-                              :data_source "external"}
-
+                              :data_source "external"
+                              :min_query_length 3}
                              ]
                   }
         ]
@@ -54,6 +54,12 @@
   [payload]
   )
 
-(defmethod add-comment-handler "create-story-handler"
-  [payload]
+(defn dynamic-story-menu-handler [payload]
+  {:options [{:label "Unexpected sentience"
+              :value "AI-2323"}
+             {:label "Bot biased toward other bots"
+              :value "SUPPORT-42"}
+             {:label "Bot broke my toaster"
+              :value "IOT-75"}]
+   }
   )

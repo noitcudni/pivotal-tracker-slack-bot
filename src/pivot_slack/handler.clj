@@ -12,9 +12,10 @@
             [pivot-slack.db :refer [conn] :as conn]
             clj-http.util
             [org.httpkit.server :refer [run-server]]
-            [pivot-slack.add-comment :refer [add-comment-handler]]
+            [pivot-slack.add-comment :refer [add-comment-handler dynamic-story-menu-handler]]
             [pivot-slack.tokens :refer [oauth-token pivotal-token]]
-            [ring.middleware.transit :refer [wrap-transit-response]]
+            [ring.util.response :refer [response]]
+            [ring.middleware.json :refer [wrap-json-response]]
             [ring.middleware.defaults :refer [wrap-defaults site-defaults]]))
 
 (def ^:dynamic *server* (atom nil))
@@ -291,17 +292,6 @@
           )))
 
 
-(defmulti dynamic-option-handler
-  (fn [payload] (get payload "callback_id")))
-
-
-
-(defmethod dynamic-option-handler "create-story"
-  [payload]
-  ;; generate a list of users
-
-  )
-
 (defroutes app-routes
   (GET "/" []
        (prn "GET!!!")
@@ -323,11 +313,30 @@
            :headers {"Content-Type" "text/plain"}
            :body ""}))
 
+
   (POST "/dynamic-options" [:as req]
-        (let [_ (prn "dynamic-options: " req)]
-          {:status 200
-           :headers {"Content-Type" "text/plain"}
-           :body ""})
+        (let [_ (prn "dynamic-options: " req)
+              ;; {callback-id :callback_id
+              ;;  :as payload} (clojure.walk/keywordize-keys (json/read-str (-> (:form-params req)
+              ;;                                                                (get "payload"))))
+              ;; _ (prn "callback_id: " callback-id)
+              ]
+          ;; Note: According to https://api.slack.com/dialogs#dynamic_select_elements, it's label not text.
+
+          (response (dynamic-story-menu-handler nil))
+          #_(response {:options [{:label "WTF!!"
+                                :value "wtf"}]
+                     ;; :selected_options [[{:text "WTF!!"
+                     ;;                      :value "wtf"}]]
+                     })
+          #_{:status 200
+           :headers {"Content-Type" "application/json"
+                     }
+           :body {:options [{:text "WTF!"
+                             :value 1}]
+                  }
+           }
+          )
         )
 
   (route/not-found "Not Found"))
@@ -336,7 +345,8 @@
   (-> app-routes
       (wrap-defaults (assoc-in site-defaults [:security :anti-forgery] false))
       logger/wrap-with-logger
-      (wrap-transit-response {:encoding :json :opts {}})
+      ;; (wrap-transit-response {:encoding :json :opts {}})
+      wrap-json-response
       ))
 
 (defn stop-server []
