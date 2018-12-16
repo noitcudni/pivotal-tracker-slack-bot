@@ -4,7 +4,35 @@
             [pivot-slack.pivotal :as pivotal]
             [clj-http.client :as client]
             [clojure.data.json :as json]
+            [ring.util.response :refer [response]]
             ))
+
+
+
+
+(defn truncate* [cap s]
+  (let [words (clojure.string/split s #"\s+")
+        word-cnt-lst (->> words (map count))
+        take-cnt (count (reduce (fn [r  curr]
+                                  (if (> (+ (- (count r) 1) (apply + r)) cap)
+                                    (reduced r)
+                                    (conj r curr)
+                                    )
+                                  )
+                                []
+                                word-cnt-lst
+                                ))
+        truncated-s (->> (-> take-cnt
+                             (take words))
+                         (clojure.string/join " "))
+        ]
+    (if (< take-cnt (count word-cnt-lst))
+      (str truncated-s "...")
+      truncated-s
+      )))
+
+(def truncate
+  (partial truncate* 40))
 
 (defmulti add-comment-handler
   (fn [payload] (:type payload)))
@@ -26,7 +54,7 @@
         elements {:title "Add as story comment"
                   :callback_id callback-id
                   :submit_label "Comment"
-                  :state "What is thie for?"
+                  :state "What is this for?"
                   :elements [{:type "select"
                               :label "Project"
                               :name :project
@@ -34,6 +62,28 @@
                               :options  (->> (for [x projects] {:value (get x "id")
                                                                 :label (get x "name")})
                                              (into []))}
+                             #_{:type "select"
+                              :label "Story type"
+                              :name :story-type
+                              :optional true
+                              :options [{:label "feature" :value :feature}
+                                        {:label "bug" :value :bug}
+                                        {:label "chore" :value :chore}
+                                        {:label "release" :value :release}]
+                              }
+                             #_{:type "select"
+                              :label "State"
+                              :name :state
+                              :optional true
+                              :options [{:label "accepted" :value :accepted}
+                                        {:label "delivered" :value :accepted}
+                                        {:label "finished" :value :accepted}
+                                        {:label "started" :value :accepted}
+                                        {:label "rejected" :value :accepted}
+                                        {:label "planned" :value :accepted}
+                                        {:label "unstarted" :value :accepted}
+                                        {:label "unscheduled" :value :accepted}]
+                              }
                              {:type "select"
                               :label "Story"
                               :name :story
@@ -54,12 +104,28 @@
   [payload]
   )
 
+
 (defn dynamic-story-menu-handler [payload]
-  {:options [{:label "Unexpected sentience"
-              :value "AI-2323"}
-             {:label "Bot biased toward other bots"
-              :value "SUPPORT-42"}
-             {:label "Bot broke my toaster"
-              :value "IOT-75"}]
-   }
+  (let [_ (prn "payload: " payload) ;; xxx
+        {value :value} payload]
+    ;; TODO: get rid of project id hardcode
+    (response {:options (->> (pivotal/stories pivotal-token 166031 :filter-str value)
+                             (map (fn [x]
+                                    (let [name (get x "name")
+                                          story-id (get x "id")]
+                                      {:label (truncate name)
+                                       :value story-id}
+                                      )))
+                             (into [])
+                             )})
+    )
+
   )
+
+
+
+
+;;;;;;;;;
+;;; scatch buffer
+;;;;;;;;;;;;;;;;;;;;
+;; (truncate "Run the crawling script on barcelona from hostelbookers ")

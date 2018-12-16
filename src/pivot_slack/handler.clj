@@ -316,14 +316,17 @@
 
   (POST "/dynamic-options" [:as req]
         (let [_ (prn "dynamic-options: " req)
-              ;; {callback-id :callback_id
-              ;;  :as payload} (clojure.walk/keywordize-keys (json/read-str (-> (:form-params req)
-              ;;                                                                (get "payload"))))
+              {callback-id :callback_id
+               :as payload} (clojure.walk/keywordize-keys (json/read-str (-> (:form-params req)
+                                                                             (get "payload"))))
               ;; _ (prn "callback_id: " callback-id)
               ]
           ;; Note: According to https://api.slack.com/dialogs#dynamic_select_elements, it's label not text.
 
-          (response (dynamic-story-menu-handler nil))
+          (case callback-id
+            "add-comment" (dynamic-story-menu-handler payload)
+            )
+
           #_(response {:options [{:label "WTF!!"
                                 :value "wtf"}]
                      ;; :selected_options [[{:text "WTF!!"
@@ -332,7 +335,7 @@
           #_{:status 200
            :headers {"Content-Type" "application/json"
                      }
-           :body {:options [{:text "WTF!"
+           :body {:options [{:label "WTF!"
                              :value 1}]
                   }
            }
@@ -360,6 +363,24 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;  test ;;;;;;;;;;;;;;;;;;;;;;;
+#_{:options (->> (pivotal/stories pivotal-token 166031
+                       :filter-str "crawl hostel"
+                       ;; :with-state "unstarted"
+                       ;; :with-story-type "feature"
+
+                       ;; :with-state ["unstarted" "unscheduled"]
+                       )
+      (map (fn [x]
+             (let [name (get x "name")
+                   story-id (get x "id")
+                   ]
+               {:label name
+                :value story-id
+                })
+             ))
+      (into [])
+      )}
+
 
 (comment
   ;; (pivotal/projects pivotal-token)
