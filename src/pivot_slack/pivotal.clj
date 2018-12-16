@@ -42,7 +42,27 @@
        json/read-str
        ))
 
-
+(defn stories
+  "
+  with-story-type: Valid enumeration values: feature, bug, chore, release.
+  with_state: Valid enumeration values: accepted, delivered, finished, started,
+              rejected, planned, unstarted, unscheduled
+  Note: pivotal's api can't support both filter-str with another parameter
+  "
+  [token project-id & {:keys [with-label with-story-type with-state filter-str]}]
+  (->> (client/get (str api-prefix "/projects/" project-id "/stories")
+                   {:headers {:X-TrackerToken token}
+                    :content-type "application/json"
+                    :query-params (->> {:with_label with-label
+                                        :with_story_type with-story-type
+                                        :filter filter-str
+                                        :with_state with-state}
+                                       (remove (fn [[_ v]] (nil? v)))
+                                       (into {}))
+                    })
+       :body
+       json/read-str
+       ))
 
 (defn create-story [token project-id & {:keys [name description story-type owner-id]}]
   (->> (client/post (str api-prefix "/projects/" project-id "/stories")
