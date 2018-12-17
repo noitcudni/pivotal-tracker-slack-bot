@@ -139,7 +139,32 @@
   [payload]
   ;; TODO: actual create the comment
   (prn ">> add-comment-handler interactive_message: " payload)
-  )
+  (let [{trigger-id :trigger_id
+         callback-id :callback_id
+         {channel-id :id} :channel
+         [{project-edn-str :name
+           [{story-edn-str :value}]:selected_options
+           ;; action-value :value
+           }] :actions
+         ts :message_ts} payload
+        {project-id :id
+         project-name :name} (read-string project-edn-str)
+        {:keys [story-id story-name]} (read-string story-edn-str)
+        ]
+    (client/post "https://slack.com/api/chat.update" {:content-type  "application/json"
+                                                      :charset "utf-8"
+                                                      :headers {:authorization (str "Bearer " oauth-token)}
+                                                      :body (json/write-str {:trigger_id trigger-id
+                                                                             :channel channel-id
+                                                                             :ts ts
+                                                                             :attachments [{:text
+                                                                                            (format "Added comment to Project: %s - Story: %s"
+                                                                                                    project-name story-name)
+                                                                                            }]
+                                                                             })
+                                                      })
+
+    ))
 
 (defn dynamic-story-menu-handler [payload]
   (let [{pivotal-proj-edn-str :name  ;; shamelessly hijacked the name field to pass along data
