@@ -7,9 +7,6 @@
             [ring.util.response :refer [response]]
             ))
 
-
-
-
 (defn truncate* [cap s]
   (let [words (clojure.string/split s #"\s+")
         word-cnt-lst (->> words (map count))
@@ -59,9 +56,15 @@
                               :label "Project"
                               :name :project
                               :placeholder "Select a project"
-                              :options  (->> (for [x projects] {:value (get x "id")
+                              :options  (->> (for [x projects] {:value (pr-str {:id (get x "id") :name (get x "name")})
                                                                 :label (get x "name")})
                                              (into []))}
+                             {:type "textarea"
+                              :label "Description"
+                              :name :description
+                              :value description
+                              :optional true}
+
                              #_{:type "select"
                               :label "Story type"
                               :name :story-type
@@ -84,7 +87,7 @@
                                         {:label "unstarted" :value :accepted}
                                         {:label "unscheduled" :value :accepted}]
                               }
-                             {:type "select"
+                             #_{:type "select"
                               :label "Story"
                               :name :story
                               :data_source "external"
@@ -102,30 +105,70 @@
 
 (defmethod add-comment-handler "dialog_submission"
   [payload]
-  )
+  (let [token oauth-token
+        {trigger-id :trigger_id
+         callback-id :callback_id
+         {channel-id :id} :channel
+         {pivotal-proj-edn-str :project
+          :as submission-data} :submission} payload
+        ]
+    (client/post "https://slack.com/api/chat.postMessage" {:content-type "application/json"
+                                                           :charset "utf-8"
+                                                           :headers {:authorization (str "Bearer " token)}
+                                                           :body (json/write-str {:trigger_id trigger-id
+                                                                                  :channel channel-id
+                                                                                  :text "Select a story"
+                                                                                  :attachments [{:text "story"
+                                                                                                 :attachment_type "default"
+                                                                                                 :callback_id callback-id
+                                                                                                 :actions [{:name pivotal-proj-edn-str
+                                                                                                            ;; :name "selected-story"
+                                                                                                            :type "select"
+                                                                                                            :text "Select a story"
+                                                                                                            :extra-data "extra data"
+                                                                                                            :data_source "external"
+                                                                                                            :min_query_length 3
+                                                                                                            }]}
+                                                                                                ]
 
+                                                                                  })
+                                                           })
+    ))
+
+(defmethod add-comment-handler "interactive_message"
+  [payload]
+  ;; TODO: actual create the comment
+  (prn ">> add-comment-handler interactive_message: " payload)
+  )
 
 (defn dynamic-story-menu-handler [payload]
-  (let [_ (prn "payload: " payload) ;; xxx
-        {value :value} payload]
-    ;; TODO: get rid of project id hardcode
-    (response {:options (->> (pivotal/stories pivotal-token 166031 :filter-str value)
-                             (map (fn [x]
-                                    (let [name (get x "name")
-                                          story-id (get x "id")]
-                                      {:label (truncate name)
-                                       :value story-id}
-                                      )))
-                             (into [])
-                             )})
-    )
-
-  )
-
-
+  (let [{pivotal-proj-edn-str :name  ;; shamelessly hijacked the name field to pass along data
+         value :value} payload
+        _ (prn "dynamic-story-menu-handler payload: " payload)
+        {project-id :id
+         project-name :name} (read-string pivotal-proj-edn-str)
+        ]
+   {:status 200
+    :headers {"Content-Type" "application/json"}
+    :body {:options
+           ;; [{:text "foo" :value "foo"}
+           ;;  {:text "bar" :value "bar"}
+           ;;  {:text "baz" :value "baz"}
+           ;;  ]
+           (->> (pivotal/stories pivotal-token project-id :filter-str value)
+                (map (fn [x]
+                       (let [name (get x "name")
+                             story-id (get x "id")]
+                         {:text (truncate name)
+                          :value (pr-str {:story-name name :story-id story-id})}
+                         )))
+                (into [])
+                )}
+    }))
 
 
 ;;;;;;;;;
 ;;; scatch buffer
 ;;;;;;;;;;;;;;;;;;;;
-;; (truncate "Run the crawling script on barcelona from hostelbookers ")
+#_{:action_ts "1545013081.047505", :callback_id "add-comment", :trigger_id "505554453173.261542976081.f03e092b880efdbff02b1200defd18f3", :is_app_unfurl false, :channel {:id "CDUF6Q4V6", :name "pivotal"}, :type "interactive_message", :actions [{:name "{:id 166031, :name \"PackerShack\"}", :type "select", :selected_options [{:value "{:story-name \"Crawl hostelworld\", :story-id 13822821}"}]}], :token "qE7oUaW1ATt44SXNRSKs0SUL", :attachment_id "1", :team {:id "T7PFYUQ2D", :domain "jennyandlih"}, :message_ts "1545013072.002300", :user {:id "U7Q1X2JTC", :name "lihster"}, :response_url "https://hooks.slack.com/actions/T7PFYUQ2D/505354441778/o1MuVym1QNA7s4SFtjx6OhNr", :original_message {:type "message", :subtype "bot_message", :text "Select a story", :ts "1545013072.002300", :username "pivot-slack", :bot_id "BEHSRHEV6", :attachments [{:callback_id "add-comment", :text "story", :id 1, :actions [{:id "1", :name "{:id 166031, :name \"PackerShack\"}", :text "Select a story",
+:type "select", :data_source "external", :min_query_length 3}], :fallback "story"}]}}
