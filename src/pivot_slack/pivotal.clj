@@ -111,4 +111,12 @@
       :body
       json/read-str))
 
+(defn add-comment [token project-id story-id text]
+  ;; TODO: what about attachments
+  (client/post (str api-prefix "/projects/" project-id "/stories/" story-id "/comments")
+               {:headers {:X-TrackerToken token}
+                :content-type "application/json"
+                :body (-> {:text text} json/write-str)
+                }))
+
 ;; (upload (:pivotal-api-token env) 166031 "/Users/lih/Desktop/transactor-disconnect-error.png")
